@@ -1,2 +1,2 @@
 # os-tp0
-les barres en bas
+a turing machine homework in c for Operating System's class at University of Montreal
