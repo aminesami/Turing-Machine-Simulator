@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-
 typedef unsigned char byte;
 typedef int error_code;
 
@@ -11,9 +10,11 @@ typedef int error_code;
 
 void print_error_msg (char *);
 int strcmp (char *, char *);
-error_code strlen (char *);
-error_code no_of_lines(FILE *);
 
+/**
+ * Cette fonction imprime un message d'erreur
+ * @param msg le message
+ */
 void print_error_msg (char *msg) {
     fprintf(stderr, "error occured : %s\n", msg);
 }
@@ -34,11 +35,15 @@ int strcmp(char *p1, char *p2) {
     do {
         c1 = (char) *s1++;
         c2 = (char) *s2++;
-        if (c1 == '\0')
+        if (c1 == '\0') {
             return c1 - c2;
+        }
     } while (c1 == c2);
+    
     return c1 - c2;
 }
+
+error_code strlen (char *);
 
 /**
  * Ex. 1: Calcul la longueur de la chaîne passée en paramètre selon
@@ -56,6 +61,8 @@ error_code strlen(char *s) {
 
     return len; /* || ERROR; */
 }
+
+error_code no_of_lines(FILE *);
 
 /**
  * Ex.2 :Retourne le nombre de lignes d'un fichier sans changer la position
@@ -96,6 +103,9 @@ error_code no_of_lines(FILE *fp) {
     return n;
 }
 
+
+error_code readline(FILE *, char **, size_t);
+
 /**
  * Ex.3: Lit une ligne au complet d'un fichier
  * @param fp le pointeur vers la ligne de fichier
@@ -118,7 +128,7 @@ error_code readline(FILE *fp, char **out, size_t max_len) {
         print_error_msg("niksamer");
         return ERROR;
     }
-    
+
     return n;
 }
 
@@ -139,7 +149,6 @@ typedef struct {
 enum { G, S, D };
 
 error_code memcpy(void *, void *, size_t);
-transition *parse_line(char *, size_t);
 
 /**
  * Ex.5: Copie un bloc mémoire vers un autre
@@ -172,6 +181,15 @@ error_code memcpy(void *dest, void *src, size_t len) {
     return i;
 }
 
+void free_transition (transition *);
+transition *parse_line (char *, size_t);
+
+void free_transition (transition *tr) {
+    free(tr->from);
+    free(tr->to);
+    free(tr);
+}
+
 /**
  * Ex.6: Analyse une ligne de transition
  * @param line la ligne à lire
@@ -184,19 +202,21 @@ transition *parse_line(char *line, size_t len) {
     transition *tr;
     int saved_i;
     
-    if( line[0] != '(' ){
+    if (line[0] != '(') {
+        print_error_msg("transition does not start with a paren");
         return NULL;
     }
     
     i = 1;
     
-    while(line[i++] != ',');
+    while (line[i++] != ',')
+        ;
+
     tr = malloc(sizeof(transition));
-
     tr->from = malloc(sizeof(char)*(i - 1));
-    memcpy(tr->from, line + 1, i-2);
+    memcpy(tr->from, line + 1, i - 2);
     tr->from[i - 2] = '\0';
-
+    
     tr->in = line[i++];
 
     if( i+4>len          ||
@@ -204,6 +224,7 @@ transition *parse_line(char *line, size_t len) {
         line[i++] != '-' ||
         line[i++] != '>' ||
         line[i++] != '(' ){
+        print_error_msg("invalid transition format excepted ')->('");
         return NULL;
     }
 
@@ -211,11 +232,12 @@ transition *parse_line(char *line, size_t len) {
 
     while(line[i++] != ',' && i < len);
     tr->to = malloc(sizeof(char)*(i - saved_i + 1));
-    memcpy(tr->to, line + 1, i - saved_i);
+    memcpy(tr->to, line + saved_i, i - saved_i - 1);
     tr->to[i - saved_i] = '\0';
     
     tr->out = line[i++];
     if(i+2 >= len || line[i++] != ','){
+        print_error_msg("invalid transition format");
         return NULL;
     }
     
@@ -226,13 +248,28 @@ transition *parse_line(char *line, size_t len) {
         break;
     case 'S': tr->dir = S;
         break;
-    default : return NULL;
+    default :
+        print_error_msg("invalid direction symbol");
+        return NULL;
     }
 
-    if(line[i++]!=')') return NULL;
+    if(line[i++]!=')') {
+        print_error_msg("transition does not end with a paren");
+        return NULL;
+    }
     
     return tr;
 }
+
+struct list { char val; struct list *next; };
+typedef struct {
+    struct list *before;
+    struct list *after;
+    char current_cell;
+    char *current_state;
+} turing_machine;
+
+error_code execute(char *, char *);
 
 /**
  * Ex.7: Execute la machine de turing dont la description est fournie
@@ -241,72 +278,62 @@ transition *parse_line(char *line, size_t len) {
  * @return le code d'erreur
  */
 error_code execute(char *machine_file, char *input) {
+    FILE *fp = fopen(input, "r");
+
     
     
+    fclose(fp);
     return ERROR;
+}
+
+void test (int);
+
+void test (int v) {
+    static int i = 1;
+    if (!v)
+        fprintf(stderr, "test #%d failed\n", i);
+    i++;
 }
 
 int main() {
 // vous pouvez ajouter des tests pour les fonctions ici
     FILE *fp;
     char *str, *str2;
-
-    str = malloc(sizeof(char) * 32);
-    str2 = malloc(sizeof(char) * 32);
-    
-    if (strlen("abca") != 4) {
-        fprintf(stderr, "test of 'strlen' on \"abca\" failed\n");
-        free(str);
-        free(str2);
-        return 1;
-    }
+    transition *tr;
 
     fp = fopen("simple.txt", "r");
     if (!fp) {
         print_error_msg("can't open file 'simple.txt'");
-        fclose(fp);
-        free(str);
-        free(str2);
         return 1;
     }
-
-    if (no_of_lines(fp) != 5) {
-        fprintf(stderr, "test of no_of_lines for 'simple.txt' failed\n");
-        fclose(fp);
-        free(str);
-        free(str2);
-        return 1;
-    }
-
-    if(readline(fp, &str, 32) != 2){
-        print_error_msg("fuck. readline doesnt work. we fucked up bro.");
-        fclose(fp);
-        free(str);
-        free(str2);
-        return 1;
-    }
-
-    if (strcmp(str, "q0") != 0) {
-        print_error_msg("we have a problem");
-        fclose(fp);
-        free(str);
-        free(str2);
-        return 1;
-    }
-
+    str = malloc(sizeof(char) * 32);
+    str2 = malloc(sizeof(char) * 32);
+    
+    test(strlen("abca") == 4); /* 1 */
+    test(no_of_lines(fp) == 5); /* 2 */
+    test(readline(fp, &str, 32) == 2); /* 3 */
+    test(strcmp(str, "q0") == 0); /* 4 */
+    test(readline(fp, &str, 32) == 2); /* 5 */
+    test(strcmp(str, "qA") == 0); /* 6 */
+    test(readline(fp, &str, 32) == 2); /* 7 */
+    test(strcmp(str, "qR") == 0); /* 8 */
+    memcpy(str, "astroblaze", 5);
+    str[5] = '\0';
+    test(strcmp(str, "astro") == 0); /* 9 */
     memcpy(str2, str, 32);
-
-    if (strcmp(str, str2) != 0) {
-        print_error_msg("we have a problem 2");
-        fclose(fp);
-        free(str);
-        free(str2);
-        return 1;
-    }
+    test(strcmp(str, str2) == 0); /* 10 */
+    readline(fp, &str, 32);
+    test(tr = parse_line(str, strlen(str))); /* 11 */
+    test(strcmp(tr->from, "q0") == 0); /* 12 */
+    test(tr->in == '1'); /* 13 */
+    test(strcmp(tr->to, "qA") == 0); /* 14 */
+    test(tr->out == '0'); /* 15 */
+    test(tr->dir == S); /* 16 */
 
     fclose(fp);
     free(str);
     free(str2);
+    free_transition(tr);
 
     return 0;
 }
