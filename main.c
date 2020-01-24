@@ -39,7 +39,7 @@ int strcmp(char *p1, char *p2) {
             return c1 - c2;
         }
     } while (c1 == c2);
-    
+
     return c1 - c2;
 }
 
@@ -96,7 +96,7 @@ error_code count_in_file (FILE *fp, char count_lines) {
         print_error_msg("error occured in file");
         return ERROR;
     }
-    
+
     c = fseek(fp, pos, SEEK_SET);
     if (c < 0) {
         print_error_msg("can't reset file position");
@@ -173,16 +173,16 @@ error_code memcpy(void *, void *, size_t);
 error_code memcpy(void *dest, void *src, size_t len) {
     int i = 0;
     byte *dst = (byte*) dest;
-    
+
     if (!dst || !src){
         print_error_msg("memcpy no pointer provided lol");
         return ERROR;
     }
 
     while(i < len){
-        dst[i++] = *((byte*)(src++)); 
+        dst[i++] = *((byte*)(src++));
     }
-    
+
     return i;
 }
 
@@ -206,12 +206,12 @@ transition *parse_line(char *line, size_t len) {
     int i;
     transition *tr;
     int saved_i;
-    
+
     if (line[0] != '(') {
         print_error_msg("transition does not start with a paren");
         return NULL;
     }
-    
+
     i = 1;
     while (line[++i] != ',')
         ;
@@ -231,10 +231,10 @@ transition *parse_line(char *line, size_t len) {
         free(tr); /* il faut rendre la memoire de tr pour ne pas la perdre */
         return NULL;
     }
-    
+
     memcpy(tr->from, line + 1, i - 1);
     tr->from[i++] = '\0'; /* en incrementant i pour sauter la virgule */
-    
+
     tr->in = line[i++];
 
     if( i+4>len          ||
@@ -252,7 +252,7 @@ transition *parse_line(char *line, size_t len) {
 
     while(line[++i] != ',' && i + 1 < len)
         ;
-    
+
     if (i > len) {
         print_error_msg("invalid state format, excepted comma");
         free(tr->from);
@@ -269,7 +269,7 @@ transition *parse_line(char *line, size_t len) {
         free(tr);
         return NULL;
     }
-    
+
     memcpy(tr->to, line + saved_i, i - saved_i);
     tr->to[i - saved_i] = '\0';
 
@@ -279,7 +279,7 @@ transition *parse_line(char *line, size_t len) {
         free_transition(tr);
         return NULL;
     }
-    
+
     switch(line[++i]){
     case 'D':
         tr->dir = D;
@@ -330,11 +330,11 @@ void free_list (struct list *l) {
  */
 void free_turing_machine (turing_machine tm) {
     int i;
-    
+
     for (i = 0; i < tm.no_of_transitions; i++)
         free(tm.transitions[i]);
     free(tm.transitions);
-    
+
     free(tm.accept_state);
     free(tm.reject_state);
     free_list(tm.before);
@@ -352,14 +352,18 @@ error_code execute(char *machine_file, char *input) {
     int len;
     turing_machine tm; /* pas necessaire de mettre la structure dans le heap */
     FILE *fp = fopen(input, "r");
+    int i;
 
+    /* count the lenght of the first line of the file */
     len = count_in_file(fp, 0);
     if (len < 0) {
         print_error_msg("could not count line lenght");
         return ERROR;
     }
-    
-    line = calloc(sizeof(char) ,len);
+
+    /* the len is used to decide length of line
+       the current state is set in data struct */
+    line = calloc(sizeof(char) ,len + 1);
     if (!line) {
         print_error_msg("could not allocate initial state string");
         return ERROR;
@@ -367,14 +371,15 @@ error_code execute(char *machine_file, char *input) {
     tm.current_state = line;
     readline(fp, &(tm.current_state), len);
 
+    /* accept state is set */
     len = count_in_file(fp, 0);
     if (len < 0) {
         print_error_msg("could not count line lenght");
         free(line);
         return ERROR;
     }
-    
-    tm.accept_state = calloc(sizeof(char) ,len);
+
+    tm.accept_state = calloc(sizeof(char) ,len + 1);
     if (!(tm.accept_state)) {
         print_error_msg("could not allocate accept state string");
         free(line);
@@ -382,6 +387,7 @@ error_code execute(char *machine_file, char *input) {
     }
     readline(fp, &(tm.accept_state), len);
 
+    /* for reject state */
     len = count_in_file(fp, 0);
     if (len < 0) {
         print_error_msg("could not count line lenght");
@@ -389,8 +395,8 @@ error_code execute(char *machine_file, char *input) {
         free(tm.accept_state);
         return ERROR;
     }
-    
-    tm.reject_state = calloc(sizeof(char) ,len);
+
+    tm.reject_state = calloc(sizeof(char) ,len + 1);
     if (!(tm.reject_state)) {
         print_error_msg("could not allocate reject state string");
         free(line);
@@ -399,6 +405,7 @@ error_code execute(char *machine_file, char *input) {
     }
     readline(fp, &(tm.reject_state), len);
 
+    /* here we check when is the end of the array and nbr of transitions */
     tm.no_of_transitions = no_of_lines(fp) - 3;
     tm.transitions = malloc(sizeof(transition*) * tm.no_of_transitions);
     if (!(tm.transitions)) {
@@ -409,9 +416,30 @@ error_code execute(char *machine_file, char *input) {
         return ERROR;
     }
 
-    /* TODO: utiliser parse_line pour remplir tm.transitions, si le string line 
+    /* TODO: utiliser parse_line pour remplir tm.transitions, si le string line
        est utilisé, il faut remettre tm.current_state dedans à la fin pour ne pas
        leak de memoire ensuite lors de l'execution de la machine */
+    for(i=0; i<tm.no_of_transitions; i++){
+        /* count the lenght of the first line of the file */
+        len = count_in_file(fp, 0);
+        if (len < 0) {
+            print_error_msg("could not count line lenght");
+            return ERROR;
+        }
+
+        /* the len is used to decide length of line
+           the current state is set in data struct */
+        line = calloc(sizeof(char) ,len + 1);
+        if (!line) {
+            print_error_msg("could not allocate initial state string");
+            return ERROR;
+        }
+        tm.transitions[i] = parse_line(line, len);
+        if (!(tm.transitions[i])) {
+            print_error_msg("couldnt get transition properly");
+            return ERROR;
+        }
+    }
 
     fclose(fp);
 
@@ -420,7 +448,7 @@ error_code execute(char *machine_file, char *input) {
     /* ces 2 object doivent être libéré avant de retourner le résultat */
     free_turing_machine(tm);
     free(line);
-    
+
     return ERROR;
 }
 
@@ -435,7 +463,7 @@ int main() {
 #define test(v) if (!(v)) {\
         fprintf(stderr, "test #%d failed\n", i); \
         goto clean; } i++
-    
+
     fp = fopen("simple.txt", "r");
     if (!fp) {
         print_error_msg("can't open file 'simple.txt'");
@@ -443,7 +471,7 @@ int main() {
     }
     str = malloc(sizeof(char) * 32);
     str2 = malloc(sizeof(char) * 32);
-    
+
     test(strlen("abca") == 4); /* 1 : strlen*/
     test(readline(fp, &str, 32) == 2); /* 2 : readline return value */
     test(strcmp(str, "q0") == 0); /* 3 : readline reading */
@@ -457,7 +485,7 @@ int main() {
     test(strcmp(str, "astro") == 0); /* 9 : memcpy substring */
     memcpy(str2, str, strlen(str) + 10);
     test(strcmp(str, str2) == 0); /* 10 : memcpy n over strlen */
-    
+
     readline(fp, &str, 32);
     test(tr = parse_line(str, strlen(str))); /* 11 */
     clean_stage++;
@@ -466,7 +494,7 @@ int main() {
     test(strcmp(tr->to, "qA") == 0); /* 14 */
     test(tr->out == '0'); /* 15 */
     test(tr->dir == S); /* 16 */
- 
+
  clean:
     fclose(fp);
     free(str);
