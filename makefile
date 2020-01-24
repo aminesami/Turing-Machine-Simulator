@@ -7,4 +7,4 @@ tests: tp0
 	./tp0
 
 clean:
-	-rm -f tp0
+	rm -f tp0

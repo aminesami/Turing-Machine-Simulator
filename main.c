@@ -225,7 +225,7 @@ transition *parse_line(char *line, size_t len) {
     /* ici i est sur la virgule suivant l'etat courrant
        la longueur necessaire est donc i - 1 car la ligne
        commence par une parenthese */
-    tr->from = malloc(sizeof(char)*i);
+    tr->from = calloc(sizeof(char), i);
     if (!(tr->from)) {
         print_error_msg("from state string could not be allocated");
         free(tr); /* il faut rendre la memoire de tr pour ne pas la perdre */
@@ -262,7 +262,7 @@ transition *parse_line(char *line, size_t len) {
 
     /* i est sur la virgule */
 
-    tr->to = malloc(sizeof(char)*(i - saved_i + 1));
+    tr->to = calloc(sizeof(char), i - saved_i + 1);
     if (!(tr->to)) {
         print_error_msg("to state string could not be allocated");
         free(tr->from);
@@ -301,7 +301,7 @@ transition *parse_line(char *line, size_t len) {
 
 struct list { char val; struct list *next; };
 typedef struct {
-    transition *transitions;
+    transition **transitions;
     char *accept_state;
     char *reject_state;
     struct list *before;
@@ -311,7 +311,35 @@ typedef struct {
     char current_cell;
 } turing_machine;
 
+void free_list (struct list *);
 error_code execute(char *, char *);
+
+void free_list (struct list *l) {
+    struct list *next;
+    while (l) {
+        next = l->next;
+        free(l);
+        l = next;
+    }
+}
+
+/**
+ *`Libère la machine de turing, l'étant courant n'est pas libéré par
+ * cette fonction
+ * @param tm une machine de turing
+ */
+void free_turing_machine (turing_machine tm) {
+    int i;
+    
+    for (i = 0; i < tm.no_of_transitions; i++)
+        free(tm.transitions[i]);
+    free(tm.transitions);
+    
+    free(tm.accept_state);
+    free(tm.reject_state);
+    free_list(tm.before);
+    free_list(tm.after);
+}
 
 /**
  * Ex.7: Execute la machine de turing dont la description est fournie
@@ -321,11 +349,78 @@ error_code execute(char *, char *);
  */
 error_code execute(char *machine_file, char *input) {
     char *line;
+    int len;
+    turing_machine tm; /* pas necessaire de mettre la structure dans le heap */
     FILE *fp = fopen(input, "r");
+
+    len = count_in_file(fp, 0);
+    if (len < 0) {
+        print_error_msg("could not count line lenght");
+        return ERROR;
+    }
     
+    line = calloc(sizeof(char) ,len);
+    if (!line) {
+        print_error_msg("could not allocate initial state string");
+        return ERROR;
+    }
+    tm.current_state = line;
+    readline(fp, &(tm.current_state), len);
+
+    len = count_in_file(fp, 0);
+    if (len < 0) {
+        print_error_msg("could not count line lenght");
+        free(line);
+        return ERROR;
+    }
     
+    tm.accept_state = calloc(sizeof(char) ,len);
+    if (!(tm.accept_state)) {
+        print_error_msg("could not allocate accept state string");
+        free(line);
+        return ERROR;
+    }
+    readline(fp, &(tm.accept_state), len);
+
+    len = count_in_file(fp, 0);
+    if (len < 0) {
+        print_error_msg("could not count line lenght");
+        free(line);
+        free(tm.accept_state);
+        return ERROR;
+    }
     
+    tm.reject_state = calloc(sizeof(char) ,len);
+    if (!(tm.reject_state)) {
+        print_error_msg("could not allocate reject state string");
+        free(line);
+        free(tm.accept_state);
+        return ERROR;
+    }
+    readline(fp, &(tm.reject_state), len);
+
+    tm.no_of_transitions = no_of_lines(fp) - 3;
+    tm.transitions = malloc(sizeof(transition*) * tm.no_of_transitions);
+    if (!(tm.transitions)) {
+        print_error_msg("could not allocate transitions pointers");
+        free(line);
+        free(tm.accept_state);
+        free(tm.reject_state);
+        return ERROR;
+    }
+
+    /* TODO: utiliser parse_line pour remplir tm.transitions, si le string line 
+       est utilisé, il faut remettre tm.current_state dedans à la fin pour ne pas
+       leak de memoire ensuite lors de l'execution de la machine */
+
     fclose(fp);
+
+    /* TODO : executer la machine */
+
+    /* ces 2 object doivent être libéré avant de retourner le résultat */
+    free_turing_machine(tm);
+    free(line);
+    
     return ERROR;
 }
 
