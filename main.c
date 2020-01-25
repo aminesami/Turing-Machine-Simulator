@@ -372,6 +372,7 @@ error_code execute(char *machine_file, char *input) {
     len = count_in_file(fp, 0);
     if (len < 0) {
         print_error_msg("could not count line lenght");
+        fclose(fp);
         return ERROR;
     }
 
@@ -380,6 +381,7 @@ error_code execute(char *machine_file, char *input) {
     line = calloc(sizeof(char) ,len + 1);
     if (!line) {
         print_error_msg("could not allocate initial state string");
+        fclose(fp);
         return ERROR;
     }
     tm.current_state = line;
@@ -389,6 +391,7 @@ error_code execute(char *machine_file, char *input) {
     len = count_in_file(fp, 0);
     if (len < 0) {
         print_error_msg("could not count line lenght");
+        fclose(fp);
         free(line);
         return ERROR;
     }
@@ -396,6 +399,7 @@ error_code execute(char *machine_file, char *input) {
     tm.accept_state = calloc(sizeof(char) ,len + 1);
     if (!(tm.accept_state)) {
         print_error_msg("could not allocate accept state string");
+        fclose(fp);
         free(line);
         return ERROR;
     }
@@ -405,6 +409,7 @@ error_code execute(char *machine_file, char *input) {
     len = count_in_file(fp, 0);
     if (len < 0) {
         print_error_msg("could not count line lenght");
+        fclose(fp);
         free(line);
         free(tm.accept_state);
         return ERROR;
@@ -413,6 +418,7 @@ error_code execute(char *machine_file, char *input) {
     tm.reject_state = calloc(sizeof(char) ,len + 1);
     if (!(tm.reject_state)) {
         print_error_msg("could not allocate reject state string");
+        fclose(fp);
         free(line);
         free(tm.accept_state);
         return ERROR;
@@ -424,6 +430,7 @@ error_code execute(char *machine_file, char *input) {
     tm.transitions = malloc(sizeof(transition*) * tm.no_of_transitions);
     if (!(tm.transitions)) {
         print_error_msg("could not allocate transitions pointers");
+        fclose(fp);
         free(line);
         free(tm.accept_state);
         free(tm.reject_state);
@@ -438,6 +445,12 @@ error_code execute(char *machine_file, char *input) {
         len = count_in_file(fp, 0);
         if (len < 0) {
             print_error_msg("could not count line lenght");
+            fclose(fp);
+            free(line);
+            free(tm.accept_state);
+            free(tm.reject_state);
+            while(--i>=0) free(tm.transitions[i]);
+            free(tm.transitions);
             return ERROR;
         }
 
@@ -446,11 +459,23 @@ error_code execute(char *machine_file, char *input) {
         line = calloc(sizeof(char) ,len + 1);
         if (!line) {
             print_error_msg("could not allocate initial state string");
+            fclose(fp);
+            free(line);
+            free(tm.accept_state);
+            free(tm.reject_state);
+            while(--i>=0) free(tm.transitions[i]);
+            free(tm.transitions);
             return ERROR;
         }
         tm.transitions[i] = parse_line(line, len);
         if (!(tm.transitions[i])) {
             print_error_msg("couldnt get transition properly");
+            fclose(fp);
+            free(line);
+            free(tm.accept_state);
+            free(tm.reject_state);
+            while(--i>=0) free(tm.transitions[i]);
+            free(tm.transitions);
             return ERROR;
         }
     }
@@ -504,10 +529,12 @@ error_code execute(char *machine_file, char *input) {
             }
         }
 
-         if(strcmp(tm.current_state,tm.accept_state)==0 ||
-            strcmp(tm.current_state,tm.reject_state)==0){
-             break;
-         }
+        if(strcmp(tm.current_state,tm.accept_state)==0){
+            return 1;
+        }
+        if(strcmp(tm.current_state,tm.reject_state)==0){
+            return 0;
+        }
     }
 
     /* ces 2 object doivent être libéré avant de retourner le résultat */
@@ -535,6 +562,7 @@ void move_right (turing_machine tm){
     tm.before = make_list(tm.current_cell, tm.before);
     tm.current_cell = next->val;
     tm.after = next->next;
+    free(next);
     return;
 }
 
@@ -546,6 +574,7 @@ int main() {
     byte clean_stage = 0;
 
     int i = 1;
+    //execute("simple.txt","0010");
 #define test(v) if (!(v)) {\
         fprintf(stderr, "test #%d failed\n", i); \
         goto clean; } i++
