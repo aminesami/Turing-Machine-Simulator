@@ -490,8 +490,8 @@ error_code execute(char *machine_file, char *input) {
             free(tm.accept_state);
             free(tm.reject_state);
             free(tm.current_state);
-            while(i-- >= 0)
-                free(tm.transitions[i]);
+            while(i >= 0)
+                free(tm.transitions[i--]);
             free(tm.transitions);
             return ERROR;
         }
