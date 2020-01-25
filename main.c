@@ -313,8 +313,8 @@ typedef struct {
     char current_cell;
 } turing_machine;
 
-void move_left (turing_machine );
-void move_right (turing_machine );
+turing_machine move_left (turing_machine );
+turing_machine move_right (turing_machine );
 struct list *make_list (char, struct list *);
 void free_list (struct list *);
 error_code execute(char *, char *);
@@ -523,8 +523,8 @@ error_code execute(char *machine_file, char *input) {
                 tm.current_cell = trans->out;
                 tm.current_state = trans->to;
 
-                if(trans->dir==-1) move_left(tm);
-                else if(trans->dir==1) move_right(tm);
+                if(trans->dir==-1) tm = move_left(tm);
+                else if(trans->dir==1) tm = move_right(tm);
                 break;
             }
         }
@@ -544,18 +544,18 @@ error_code execute(char *machine_file, char *input) {
     return ERROR;
 }
 
-void move_left (turing_machine tm){
+turing_machine move_left (turing_machine tm){
     struct list *next;
-    if(!tm.before) return;
+    if(!tm.before) return tm;
     next = tm.before;
     tm.before = next->next;
     tm.after = make_list(tm.current_cell, tm.after);
     tm.current_cell = next->val;
     free(next);
-    return;
+    return tm;
 }
 
-void move_right (turing_machine tm){
+turing_machine move_right (turing_machine tm){
     struct list *next;
     if(!tm.after) next = make_list('\0', NULL);
     else next = tm.after;
@@ -563,7 +563,7 @@ void move_right (turing_machine tm){
     tm.current_cell = next->val;
     tm.after = next->next;
     free(next);
-    return;
+    return tm;
 }
 
 int main() {
@@ -574,7 +574,7 @@ int main() {
     byte clean_stage = 0;
 
     int i = 1;
-    //execute("simple.txt","0010");
+    execute("simple.txt","0010");
 #define test(v) if (!(v)) {\
         fprintf(stderr, "test #%d failed\n", i); \
         goto clean; } i++
