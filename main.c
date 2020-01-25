@@ -444,6 +444,11 @@ error_code execute(char *machine_file, char *input) {
     // now I have to put back to variable line the string of current-state
     line = tm.current_state;
 
+    char input;
+    while(*input){
+        input = 
+    }
+
     // maintenant on doit lire le input pi le mettre dans la liste chainee
     // aftr
     fclose(fp);
@@ -456,6 +461,10 @@ error_code execute(char *machine_file, char *input) {
 
     return ERROR;
 }
+
+//fonction qui etant donne une fonction de transition , un char input et un
+// char pointer qui represente l'etat
+
 
 int main() {
 // vous pouvez ajouter des tests pour les fonctions ici
