@@ -84,7 +84,7 @@ error_code count_in_file (FILE *fp, char count_lines) {
     if (count_lines)
         rewind(fp); /* revenir au debut */
 
-    while ((c = getc(fp)) >= 0) {
+    while ((c = fgetc(fp)) >= 0) {
         if (count_lines && c == '\n')
             n++;
         else if (c == '\n')
@@ -131,8 +131,8 @@ error_code readline(FILE *fp, char **out, size_t max_len) {
     int n, c;
     n = 0;
 
-    while ((n < max_len - 1) &&
-           ((c = getc(fp)) != EOF) &&
+    while ((n < max_len) &&
+           ((c = fgetc(fp)) != EOF) &&
            (c != '\n')) {
         *(*out + n++) = c;
     }
@@ -365,11 +365,17 @@ error_code execute(char *machine_file, char *input) {
     struct list *l; // le ruban
     turing_machine tm; /* pas necessaire de mettre la structure dans le heap */
     transition *trans;
-    FILE *fp = fopen(input, "r");
+    FILE *fp = fopen(machine_file, "r");
+
+    if (!fp) {
+        print_error_msg("could not open file");
+        return ERROR;
+    }
+    
     int i;
 
     /* count the lenght of the first line of the file */
-    len = count_in_file(fp, 0);
+    len = count_in_file(fp, 0) + 1;
     if (len < 0) {
         print_error_msg("could not count line lenght");
         fclose(fp);
@@ -378,7 +384,7 @@ error_code execute(char *machine_file, char *input) {
 
     /* the len is used to decide length of line
        the current state is set in data struct */
-    line = calloc(sizeof(char) ,len + 1);
+    line = calloc(sizeof(char) ,len);
     if (!line) {
         print_error_msg("could not allocate initial state string");
         fclose(fp);
@@ -387,8 +393,10 @@ error_code execute(char *machine_file, char *input) {
     tm.current_state = line;
     readline(fp, &(tm.current_state), len);
 
+    //printf("%s\n", tm.current_state);
+
     /* accept state is set */
-    len = count_in_file(fp, 0);
+    len = count_in_file(fp, 0) + 1;
     if (len < 0) {
         print_error_msg("could not count line lenght");
         fclose(fp);
@@ -396,7 +404,7 @@ error_code execute(char *machine_file, char *input) {
         return ERROR;
     }
 
-    tm.accept_state = calloc(sizeof(char) ,len + 1);
+    tm.accept_state = calloc(sizeof(char) ,len);
     if (!(tm.accept_state)) {
         print_error_msg("could not allocate accept state string");
         fclose(fp);
@@ -404,9 +412,9 @@ error_code execute(char *machine_file, char *input) {
         return ERROR;
     }
     readline(fp, &(tm.accept_state), len);
-
+    
     /* for reject state */
-    len = count_in_file(fp, 0);
+    len = count_in_file(fp, 0) + 1;
     if (len < 0) {
         print_error_msg("could not count line lenght");
         fclose(fp);
@@ -415,7 +423,7 @@ error_code execute(char *machine_file, char *input) {
         return ERROR;
     }
 
-    tm.reject_state = calloc(sizeof(char) ,len + 1);
+    tm.reject_state = calloc(sizeof(char) ,len);
     if (!(tm.reject_state)) {
         print_error_msg("could not allocate reject state string");
         fclose(fp);
@@ -425,6 +433,7 @@ error_code execute(char *machine_file, char *input) {
     }
     readline(fp, &(tm.reject_state), len);
 
+    
     /* here we check when is the end of the array and nbr of transitions */
     tm.no_of_transitions = no_of_lines(fp) - 3;
     tm.transitions = malloc(sizeof(transition*) * tm.no_of_transitions);
@@ -437,10 +446,7 @@ error_code execute(char *machine_file, char *input) {
         return ERROR;
     }
 
-    /* TODO: utiliser parse_line pour remplir tm.transitions, si le string line
- est utilisé, il faut remettre tm.current_state dedans à la fin pour ne pas
-       leak de memoire ensuite lors de l'execution de la machine */
-    for(i=0; i<tm.no_of_transitions; i++){
+    for(i = 0; i < tm.no_of_transitions; i++){
         /* count the lenght of the first line of the file */
         len = count_in_file(fp, 0);
         if (len < 0) {
@@ -449,7 +455,8 @@ error_code execute(char *machine_file, char *input) {
             free(line);
             free(tm.accept_state);
             free(tm.reject_state);
-            while(--i>=0) free(tm.transitions[i]);
+            while(--i >= 0)
+                free(tm.transitions[i]);
             free(tm.transitions);
             return ERROR;
         }
@@ -485,7 +492,7 @@ error_code execute(char *machine_file, char *input) {
 
     l = NULL; /*just in case */
 
-    // cree le ruban mais a l'envers
+    /* crée le ruban mais a l'envers */
     while (*input)
         l = make_list(*(input++), l);
 
@@ -496,7 +503,7 @@ error_code execute(char *machine_file, char *input) {
     l = l->next;
     free(tm.before);
 
-    // revire la liste de bord
+    /* renverse la liste du ruban */
     while (l) {
         tm.after = make_list(tm.current_cell, tm.after);
         tm.current_cell = l->val;
@@ -505,7 +512,7 @@ error_code execute(char *machine_file, char *input) {
         l = l->next;
         free(tm.before);
     }
-    // aftr
+    /* after */
     fclose(fp);
 
     // 6. Exécuter la machine
@@ -574,7 +581,6 @@ int main() {
     byte clean_stage = 0;
 
     int i = 1;
-    execute("simple.txt","0010");
 #define test(v) if (!(v)) {\
         fprintf(stderr, "test #%d failed\n", i); \
         goto clean; } i++
@@ -609,6 +615,8 @@ int main() {
     test(strcmp(tr->to, "qA") == 0); /* 14 */
     test(tr->out == '0'); /* 15 */
     test(tr->dir == S); /* 16 */
+
+    execute("simple.txt","0010");
 
  clean:
     fclose(fp);
