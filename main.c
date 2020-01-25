@@ -495,6 +495,7 @@ error_code execute(char *machine_file, char *input) {
             free(tm.transitions);
             return ERROR;
         }
+        free(line);
     }
 
     // now I have to put back to variable line the string of current-state
