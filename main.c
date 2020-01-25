@@ -288,11 +288,12 @@ transition *parse_line(char *line, size_t len) {
     case 'G':
         tr->dir = G;
         break;
-    case 'S':
+    case 'R': case 'S':
         tr->dir = S;
         break;
     default :
         print_error_msg("invalid direction symbol, excepted G, S or D");
+        printf("%s\n", line);
         free_transition(tr);
         return NULL;
     }
@@ -436,6 +437,7 @@ error_code execute(char *machine_file, char *input) {
     
     /* here we check when is the end of the array and nbr of transitions */
     tm.no_of_transitions = no_of_lines(fp) - 3;
+
     tm.transitions = malloc(sizeof(transition*) * tm.no_of_transitions);
     if (!(tm.transitions)) {
         print_error_msg("could not allocate transitions pointers");
@@ -448,13 +450,15 @@ error_code execute(char *machine_file, char *input) {
 
     for(i = 0; i < tm.no_of_transitions; i++){
         /* count the lenght of the first line of the file */
-        len = count_in_file(fp, 0);
+        len = count_in_file(fp, 0) + 1;
+        
         if (len < 0) {
             print_error_msg("could not count line lenght");
             fclose(fp);
             free(line);
             free(tm.accept_state);
             free(tm.reject_state);
+            free(tm.current_state);
             while(--i >= 0)
                 free(tm.transitions[i]);
             free(tm.transitions);
@@ -463,17 +467,21 @@ error_code execute(char *machine_file, char *input) {
 
         /* the len is used to decide length of line
            the current state is set in data struct */
-        line = calloc(sizeof(char) ,len + 1);
+        line = calloc(sizeof(char) ,len);
         if (!line) {
             print_error_msg("could not allocate initial state string");
             fclose(fp);
             free(line);
             free(tm.accept_state);
             free(tm.reject_state);
-            while(--i>=0) free(tm.transitions[i]);
+            free(tm.current_state);
+            while(--i >= 0)
+                free(tm.transitions[i]);
             free(tm.transitions);
             return ERROR;
         }
+        
+        readline(fp, &line, len);
         tm.transitions[i] = parse_line(line, len);
         if (!(tm.transitions[i])) {
             print_error_msg("couldnt get transition properly");
@@ -481,7 +489,9 @@ error_code execute(char *machine_file, char *input) {
             free(line);
             free(tm.accept_state);
             free(tm.reject_state);
-            while(--i>=0) free(tm.transitions[i]);
+            free(tm.current_state);
+            while(--i >= 0)
+                free(tm.transitions[i]);
             free(tm.transitions);
             return ERROR;
         }
@@ -518,42 +528,47 @@ error_code execute(char *machine_file, char *input) {
     // 6. Exécuter la machine
     // 7. Si on atteint éventuellement un état acceptant ou rejetant, terminer l'exécution de la machine
     // pendant que la machine s'execute faut pas faire malloc sur le bfr
-    while(1){
+    while (1){
         //check what happens for currentState/currentInput
-        for(i = 0; i < tm.no_of_transitions; i++){
+        for (i = 0; i < tm.no_of_transitions; i++) {
 
             trans = tm.transitions[i];
 
-            if(strcmp(tm.current_state,trans->from)==0 &&
+            if(strcmp(tm.current_state, trans->from)==0 &&
                tm.current_cell == trans->in){
 
                 tm.current_cell = trans->out;
                 tm.current_state = trans->to;
 
-                if(trans->dir==-1) tm = move_left(tm);
-                else if(trans->dir==1) tm = move_right(tm);
+                if (trans->dir == -1)
+                    tm = move_left(tm);
+                else if (trans->dir == 1)
+                    tm = move_right(tm);
+                
                 break;
             }
         }
 
-        if(strcmp(tm.current_state,tm.accept_state)==0){
+        if (strcmp(tm.current_state, tm.accept_state) == 0) {
+            free_turing_machine(tm);
+            free(line);
             return 1;
-        }
-        if(strcmp(tm.current_state,tm.reject_state)==0){
+        } else if (strcmp(tm.current_state, tm.reject_state) == 0) {
+            free_turing_machine(tm);
+            free(line);
             return 0;
         }
     }
-
-    /* ces 2 object doivent être libéré avant de retourner le résultat */
-    free_turing_machine(tm);
-    free(line);
 
     return ERROR;
 }
 
 turing_machine move_left (turing_machine tm){
     struct list *next;
-    if(!tm.before) return tm;
+    
+    if(!tm.before)
+        return tm;
+    
     next = tm.before;
     tm.before = next->next;
     tm.after = make_list(tm.current_cell, tm.after);
@@ -564,8 +579,12 @@ turing_machine move_left (turing_machine tm){
 
 turing_machine move_right (turing_machine tm){
     struct list *next;
-    if(!tm.after) next = make_list('\0', NULL);
-    else next = tm.after;
+    
+    if(!tm.after)
+        next = make_list('\0', NULL);
+    else
+        next = tm.after;
+    
     tm.before = make_list(tm.current_cell, tm.before);
     tm.current_cell = next->val;
     tm.after = next->next;
@@ -612,11 +631,16 @@ int main() {
     clean_stage++;
     test(strcmp(tr->from, "q0") == 0); /* 12 */
     test(tr->in == '1'); /* 13 */
+
     test(strcmp(tr->to, "qA") == 0); /* 14 */
     test(tr->out == '0'); /* 15 */
     test(tr->dir == S); /* 16 */
 
-    execute("simple.txt","0010");
+    test(execute("simple.txt", "10010")); /* 17 */
+    /* 18 
+       ce test echoue
+       test(execute("power_len.txt", "100011")); 
+    */
 
  clean:
     fclose(fp);
