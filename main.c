@@ -311,8 +311,16 @@ typedef struct {
     char current_cell;
 } turing_machine;
 
+struct list *make_list (char, struct list *);
 void free_list (struct list *);
 error_code execute(char *, char *);
+
+struct list *make_list (char val, struct list *next) {
+    struct list *l = malloc(sizeof(struct list));
+    l->val = val;
+    l->next = next;
+    return l;
+}
 
 void free_list (struct list *l) {
     struct list *next;
@@ -350,6 +358,7 @@ void free_turing_machine (turing_machine tm) {
 error_code execute(char *machine_file, char *input) {
     char *line;
     int len;
+    struct list *l;
     turing_machine tm; /* pas necessaire de mettre la structure dans le heap */
     FILE *fp = fopen(input, "r");
     int i;
@@ -444,9 +453,23 @@ error_code execute(char *machine_file, char *input) {
     // now I have to put back to variable line the string of current-state
     line = tm.current_state;
 
-    char input;
-    while(*input){
-        input = 
+    l = NULL; /*just in case */
+    
+    while (*input)
+        l = make_list(*(input++), l);
+
+    tm.current_cell = l->val;
+    tm.after = NULL;
+    tm.before = l;
+    l = l->next;
+    free(tm.before);
+    
+    while (l) {
+        tm.after = make_list(tm.current_cell, tm.after);
+        tm.current_cell = l->val;
+        tm.before = l;
+        l = l->next;
+        free(tm.before);
     }
 
     // maintenant on doit lire le input pi le mettre dans la liste chainee
