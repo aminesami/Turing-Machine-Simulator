@@ -11,6 +11,7 @@ typedef int error_code;
 void print_error_msg (char *);
 int strcmp (char *, char *);
 
+
 /**
  * Cette fonction imprime un message d'erreur
  * @param msg le message
@@ -300,6 +301,7 @@ transition *parse_line(char *line, size_t len) {
 }
 
 struct list { char val; struct list *next; };
+
 typedef struct {
     transition **transitions;
     char *accept_state;
@@ -311,6 +313,8 @@ typedef struct {
     char current_cell;
 } turing_machine;
 
+void move_left (turing_machine );
+void move_right (turing_machine );
 struct list *make_list (char, struct list *);
 void free_list (struct list *);
 error_code execute(char *, char *);
@@ -358,8 +362,9 @@ void free_turing_machine (turing_machine tm) {
 error_code execute(char *machine_file, char *input) {
     char *line;
     int len;
-    struct list *l;
+    struct list *l; // le ruban
     turing_machine tm; /* pas necessaire de mettre la structure dans le heap */
+    transition *trans;
     FILE *fp = fopen(input, "r");
     int i;
 
@@ -454,29 +459,56 @@ error_code execute(char *machine_file, char *input) {
     line = tm.current_state;
 
     l = NULL; /*just in case */
-    
+
+    // cree le ruban mais a l'envers
     while (*input)
         l = make_list(*(input++), l);
 
     tm.current_cell = l->val;
     tm.after = NULL;
+    // used as a temp var
     tm.before = l;
     l = l->next;
     free(tm.before);
-    
+
+    // revire la liste de bord
     while (l) {
         tm.after = make_list(tm.current_cell, tm.after);
         tm.current_cell = l->val;
+        // used as temp var
         tm.before = l;
         l = l->next;
         free(tm.before);
     }
-
-    // maintenant on doit lire le input pi le mettre dans la liste chainee
     // aftr
     fclose(fp);
 
-    /* TODO : executer la machine */
+    // 6. Exécuter la machine
+    // 7. Si on atteint éventuellement un état acceptant ou rejetant, terminer l'exécution de la machine
+    // pendant que la machine s'execute faut pas faire malloc sur le bfr
+    while(1){
+        //check what happens for currentState/currentInput
+        for(i = 0; i < tm.no_of_transitions; i++){
+
+            trans = tm.transitions[i];
+
+            if(strcmp(tm.current_state,trans->from)==0 &&
+               tm.current_cell == trans->in){
+
+                tm.current_cell = trans->out;
+                tm.current_state = trans->to;
+
+                if(trans->dir==-1) move_left(tm);
+                else if(trans->dir==1) move_right(tm);
+                break;
+            }
+        }
+
+         if(strcmp(tm.current_state,tm.accept_state)==0 ||
+            strcmp(tm.current_state,tm.reject_state)==0){
+             break;
+         }
+    }
 
     /* ces 2 object doivent être libéré avant de retourner le résultat */
     free_turing_machine(tm);
@@ -485,9 +517,26 @@ error_code execute(char *machine_file, char *input) {
     return ERROR;
 }
 
-//fonction qui etant donne une fonction de transition , un char input et un
-// char pointer qui represente l'etat
+void move_left (turing_machine tm){
+    struct list *next;
+    if(!tm.before) return;
+    next = tm.before;
+    tm.before = next->next;
+    tm.after = make_list(tm.current_cell, tm.after);
+    tm.current_cell = next->val;
+    free(next);
+    return;
+}
 
+void move_right (turing_machine tm){
+    struct list *next;
+    if(!tm.after) next = make_list('\0', NULL);
+    else next = tm.after;
+    tm.before = make_list(tm.current_cell, tm.before);
+    tm.current_cell = next->val;
+    tm.after = next->next;
+    return;
+}
 
 int main() {
 // vous pouvez ajouter des tests pour les fonctions ici
