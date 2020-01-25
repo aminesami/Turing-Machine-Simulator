@@ -417,7 +417,7 @@ error_code execute(char *machine_file, char *input) {
     }
 
     /* TODO: utiliser parse_line pour remplir tm.transitions, si le string line
-       est utilisé, il faut remettre tm.current_state dedans à la fin pour ne pas
+ est utilisé, il faut remettre tm.current_state dedans à la fin pour ne pas
        leak de memoire ensuite lors de l'execution de la machine */
     for(i=0; i<tm.no_of_transitions; i++){
         /* count the lenght of the first line of the file */
@@ -441,6 +441,11 @@ error_code execute(char *machine_file, char *input) {
         }
     }
 
+    // now I have to put back to variable line the string of current-state
+    line = tm.current_state;
+
+    // maintenant on doit lire le input pi le mettre dans la liste chainee
+    // aftr
     fclose(fp);
 
     /* TODO : executer la machine */
